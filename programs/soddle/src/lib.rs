@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use std::mem::size_of;
 
-declare_id!("9D5iNHkvcau9H6fTj7knX6XgQe9gJ7keLe3BCWTkeeWi");
+declare_id!("7TNtHwytC7j1Xb611s1VCwPyZFeZJWxvkjii43VqJiup");
 
 const REQUIRED_DEPOSIT: u64 = (0.1 * LAMPORTS_PER_SOL as f64) as u64;
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
@@ -204,7 +204,6 @@ pub mod soddle_game {
     pub fn end_game_session(ctx: Context<EndGameSession>) -> Result<()> {
         let game_session = &mut ctx.accounts.game_session;
         let player_state = &mut ctx.accounts.player_state;
-        let game_state = &ctx.accounts.game_state;
 
         // Ensure the game session belongs to the current competition
         // require!(
@@ -428,7 +427,7 @@ pub struct TweetGuessEvent {
     pub kol_id: u32,
     pub tweet: String,
 }
-#[derive(PartialEq, AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, PartialEq,  Clone, Debug)]
 pub struct KOL {
     pub id: String,
     pub name: String,

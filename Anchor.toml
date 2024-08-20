@@ -5,13 +5,13 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-soddle = "9D5iNHkvcau9H6fTj7knX6XgQe9gJ7keLe3BCWTkeeWi"
+soddle = "7TNtHwytC7j1Xb611s1VCwPyZFeZJWxvkjii43VqJiup"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "https://staging-rpc.dev2.eclipsenetwork.xyz"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
