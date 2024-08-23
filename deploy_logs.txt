@@ -1,7 +1,0 @@
-error: unexpected argument '--debug' found
-
-  tip: to pass '--debug' as a value, use '-- --debug'
-
-Usage: anchor-0.30.1 deploy [OPTIONS] [-- <SOLANA_ARGS>...]
-
-For more information, try '--help'.

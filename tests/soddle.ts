@@ -27,6 +27,7 @@ describe("Soddle Game", () => {
             [Buffer.from("game_state")],
             program.programId
         );
+
         [gameSessionPda] = anchor.web3.PublicKey.findProgramAddressSync(
             [Buffer.from("game_session"), player.publicKey.toBuffer()],
             program.programId
@@ -41,22 +42,21 @@ describe("Soddle Game", () => {
         );
     });
 
-    it("Initializes the game", async () => {
-        // @ts-ignore
-        await program.methods
-            .initializeGame()
-            .accounts({
-                gameState: gameStatePda,
-                authority: provider.wallet.publicKey,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
-
-        const gameState = await program.account.gameState.fetch(gameStatePda);
-        // console.log(gameState)
-        expect(gameState.currentCompetition.id).to.include("COMP");
-        expect(gameState.lastUpdateTime.toNumber()).to.be.greaterThan(0);
-    });
+    // it("Initializes the game", async () => {
+    //     // @ts-ignore
+    //     await program.methods
+    //         .initializeGame()
+    //         .accounts({
+    //             gameState: gameStatePda,
+    //             authority: provider.wallet.publicKey,
+    //             systemProgram: anchor.web3.SystemProgram.programId,
+    //         })
+    //         .rpc();
+    //
+    //     const gameState = await program.account.gameState.fetch(gameStatePda);
+    //     expect(gameState.currentCompetition.id).to.include("COMP");
+    //     expect(gameState.lastUpdateTime.toNumber()).to.be.greaterThan(0);
+    // });
 
     it("Starts a game session", async () => {
         const kol = {
@@ -70,6 +70,7 @@ describe("Soddle Game", () => {
             ecosystem: "Solana",
         };
 
+        // @ts-ignore
         await program.methods
             .startGameSession(1, kol)
             .accounts({
@@ -82,9 +83,9 @@ describe("Soddle Game", () => {
             })
             .signers([player])
             .rpc();
-
+        const gameState = await program.account.gameState.fetch(gameStatePda);
         const gameSession = await program.account.gameSession.fetch(gameSessionPda);
-        // console.log(gameSession, gameSession.guesses)
+        console.log(gameSessionPda, gameStatePda, gameState)
         expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
         expect(gameSession.gameType).to.equal(1);
         expect(gameSession.completed).to.be.false;
@@ -271,7 +272,7 @@ describe("Soddle Game", () => {
                 .rpc();
 
             const gameState = await program.account.gameState.fetch(gameStatePda);
-            // console.log(gameState)
+            console.log(gameState, 'gameState')
             expect(gameState.currentCompetition.id).to.include("COMP");
             expect(gameState.lastUpdateTime).to.be.greaterThan(0);
         } catch (error) {

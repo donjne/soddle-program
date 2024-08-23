@@ -2,11 +2,11 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use std::mem::size_of;
 
-declare_id!("7TNtHwytC7j1Xb611s1VCwPyZFeZJWxvkjii43VqJiup");
+declare_id!("CZ4bJsRfjT7vsQpi6dGenbyP1JksLVs82zM68ReiNv43");
 
-const REQUIRED_DEPOSIT: u64 = (0.1 * LAMPORTS_PER_SOL as f64) as u64;
+const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
-const MAX_GUESSES: usize = 10;
+const MAX_GUESSES: usize = 5;
 
 #[program]
 pub mod soddle_game {
@@ -132,9 +132,9 @@ pub mod soddle_game {
         require!(!game_session.completed, SoddleError::GameAlreadyCompleted);
 
         match game_type {
-            1 => require!(!game_session.game_1_completed, SoddleError::GameAlreadyCompleted),
-            2 => require!(!game_session.game_2_completed, SoddleError::GameAlreadyCompleted),
-            3 => require!(!game_session.game_3_completed, SoddleError::GameAlreadyCompleted),
+            1 => require!(!game_session.game_1_completed, SoddleError::GameAlreadyPlayed),
+            2 => require!(!game_session.game_2_completed, SoddleError::GameAlreadyPlayed),
+            3 => require!(!game_session.game_3_completed, SoddleError::GameAlreadyPlayed),
             _ => return Err(SoddleError::InvalidGameType.into()),
         }
 
@@ -279,7 +279,7 @@ pub mod soddle_game {
 #[derive(Accounts)]
 pub struct InitializeGame<'info> {
     #[account(
-        init,
+        init_if_needed,
         payer = authority,
         space = 8 + size_of::<GameState>(),
         seeds = [b"game_state"],
@@ -298,7 +298,7 @@ pub struct StartGameSession<'info> {
     #[account(
         init,
         payer = player,
-        space = 8 + size_of::<GameSession>() + (size_of::<GuessResult>() * MAX_GUESSES) + 100,
+        space = 8 + size_of::<GameSession>() + (size_of::<GuessResult>() * MAX_GUESSES),
         seeds = [b"game_session", player.key().as_ref()],
         bump
     )]
@@ -341,8 +341,7 @@ pub struct EndCompetition<'info> {
         seeds = [b"authority"],
         bump,
     )]
-    /// CHECK: no need to check cos it already works
-    pub authority: UncheckedAccount<'info>,
+    pub authority: Signer<'info>,
 }
 
 #[account]
@@ -409,6 +408,7 @@ pub struct Competition {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(InitSpace)]
 pub struct GuessResult {
     pub kol: KOL,
     pub result: [AttributeResult; 7],
