@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
-use std::mem::size_of;
 
-declare_id!("CZ4bJsRfjT7vsQpi6dGenbyP1JksLVs82zM68ReiNv43");
+declare_id!("9b4J9BTbBnKfrfZ7YC1WpArk1z9DgQuTEhWJtoBshz7w");
 
 const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
@@ -281,7 +280,7 @@ pub struct InitializeGame<'info> {
     #[account(
         init_if_needed,
         payer = authority,
-        space = 8 + size_of::<GameState>(),
+        space = 8 + GameState::INIT_SPACE,
         seeds = [b"game_state"],
         bump
     )]
@@ -298,7 +297,7 @@ pub struct StartGameSession<'info> {
     #[account(
         init,
         payer = player,
-        space = 8 + size_of::<GameSession>() + (size_of::<GuessResult>() * MAX_GUESSES),
+        space = 8 + GameSession::INIT_SPACE,
         seeds = [b"game_session", player.key().as_ref()],
         bump
     )]
@@ -308,7 +307,7 @@ pub struct StartGameSession<'info> {
     #[account(
         init,
         payer = player,
-        space = 8 + size_of::<Player>(),
+        space = 8 + Player::INIT_SPACE,
         seeds = [b"player_state", player.key().as_ref()],
         bump
     )]
@@ -345,12 +344,13 @@ pub struct EndCompetition<'info> {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct GameState {
     pub current_competition: Competition,
     pub last_update_time: i64,
 }
-
 #[account]
+#[derive(InitSpace)]
 pub struct GameSession {
     pub player: Pubkey,
     pub game_type: u8,
@@ -366,11 +366,13 @@ pub struct GameSession {
     pub game_3_guesses: u32,
     pub total_score: u32,
     pub target_index: u8,
+    #[max_len(MAX_GUESSES)]
     pub guesses: Vec<GuessResult>,
     pub completed: bool,
     pub score: u32,
     pub deposit: u64,
     pub kol: KOL,
+    #[max_len(15)]
     pub competition_id: String,
 }
 
@@ -391,6 +393,7 @@ pub struct EndGameSession<'info> {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Player {
     pub game_1_completed: bool,
     pub game_2_completed: bool,
@@ -400,8 +403,9 @@ pub struct Player {
     pub game_3_score: u32,
 }
 
-#[account]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
 pub struct Competition {
+    #[max_len(15)]
     pub id: String,
     pub start_time: i64,
     pub end_time: i64,
@@ -411,6 +415,7 @@ pub struct Competition {
 #[derive(InitSpace)]
 pub struct GuessResult {
     pub kol: KOL,
+    #[max_len(7)]
     pub result: [AttributeResult; 7],
 }
 
@@ -422,20 +427,29 @@ pub enum AttributeResult {
     Lower,
 }
 
+impl anchor_lang::Space for AttributeResult {
+    const INIT_SPACE: usize = 1; // Enum variants are represented as u8
+}
+
 #[event]
 pub struct TweetGuessEvent {
     pub kol_id: u32,
     pub tweet: String,
 }
-#[derive(AnchorSerialize, AnchorDeserialize, PartialEq,  Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Clone, Debug, InitSpace)]
 pub struct KOL {
+    #[max_len(50)]
     pub id: String,
+    #[max_len(100)]
     pub name: String,
     pub age: u8,
+    #[max_len(50)]
     pub country: String,
     pub account_creation: u16,
+    #[max_len(200)]
     pub pfp: String,
     pub followers: u32,
+    #[max_len(50)]
     pub ecosystem: String,
 }
 

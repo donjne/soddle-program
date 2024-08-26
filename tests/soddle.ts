@@ -42,21 +42,21 @@ describe("Soddle Game", () => {
         );
     });
 
-    // it("Initializes the game", async () => {
-    //     // @ts-ignore
-    //     await program.methods
-    //         .initializeGame()
-    //         .accounts({
-    //             gameState: gameStatePda,
-    //             authority: provider.wallet.publicKey,
-    //             systemProgram: anchor.web3.SystemProgram.programId,
-    //         })
-    //         .rpc();
-    //
-    //     const gameState = await program.account.gameState.fetch(gameStatePda);
-    //     expect(gameState.currentCompetition.id).to.include("COMP");
-    //     expect(gameState.lastUpdateTime.toNumber()).to.be.greaterThan(0);
-    // });
+    it("Initializes the game", async () => {
+        // @ts-ignore
+        await program.methods
+            .initializeGame()
+            .accounts({
+                gameState: gameStatePda,
+                authority: provider.wallet.publicKey,
+                systemProgram: anchor.web3.SystemProgram.programId,
+            })
+            .rpc();
+
+        const gameState = await program.account.gameState.fetch(gameStatePda);
+        expect(gameState.currentCompetition.id).to.include("COMP");
+        expect(gameState.lastUpdateTime.toNumber()).to.be.greaterThan(0);
+    });
 
     it("Starts a game session", async () => {
         const kol = {
