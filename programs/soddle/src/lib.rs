@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("9b4J9BTbBnKfrfZ7YC1WpArk1z9DgQuTEhWJtoBshz7w");
+declare_id!("2s6ZwgHDs31jPwM2AHwLRQhqcDuAQXY5zSLF3ZceQrMC");
 
 const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
-const MAX_GUESSES: usize = 5;
+const MAX_GUESSES: usize = 10;
 
 #[program]
 pub mod soddle_game {
@@ -94,13 +94,15 @@ pub mod soddle_game {
         game_session.game_type = game_type;
         game_session.start_time = Clock::get()?.unix_timestamp;
         game_session.target_index = (Clock::get()?.unix_timestamp % 10) as u8;
-        game_session.guesses = Vec::new();
+        game_session.game_1_guesses = Vec::new();
+        game_session.game_2_guesses[0] = Game2GuessResult{
+            kol: "stuff".parse().unwrap(),
+            result: false,
+        };
         game_session.game_1_completed = false;
         game_session.game_2_completed = false;
-        game_session.game_3_completed = false;
-        game_session.game_1_score = 0;
-        game_session.game_2_score = 0;
-        game_session.game_3_score = 0;
+        game_session.game_1_score = 1000;
+        game_session.game_2_score = 1000;
         game_session.completed = false;
         game_session.score = 1000;
         game_session.kol = kol;
@@ -115,16 +117,12 @@ pub mod soddle_game {
 
         // Check if the user has already guessed the max guesses
         require!(
-        game_session.game_1_guesses < MAX_GUESSES as u32,
+        game_session.game_1_guesses_count < MAX_GUESSES as u32,
         SoddleError::MaxGuessesReachedForGame1
     );
         require!(
-        game_session.game_2_guesses < MAX_GUESSES as u32,
+        game_session.game_2_guesses_count < MAX_GUESSES as u32,
         SoddleError::MaxGuessesReachedForGame2
-    );
-        require!(
-        game_session.game_3_guesses < MAX_GUESSES as u32,
-        SoddleError::MaxGuessesReachedForGame3
     );
 
         // Check if the whole game has been completed
@@ -133,7 +131,6 @@ pub mod soddle_game {
         match game_type {
             1 => require!(!game_session.game_1_completed, SoddleError::GameAlreadyPlayed),
             2 => require!(!game_session.game_2_completed, SoddleError::GameAlreadyPlayed),
-            3 => require!(!game_session.game_3_completed, SoddleError::GameAlreadyPlayed),
             _ => return Err(SoddleError::InvalidGameType.into()),
         }
 
@@ -141,17 +138,17 @@ pub mod soddle_game {
             1 => {
                 // Logic for game type 1 (KOL attribute guessing)
                 let result = evaluate_guess(&game_session.kol, &guess);
-                game_session.guesses.push(GuessResult {
+                game_session.game_1_guesses.push(Game1GuessResult {
                     kol: guess,
                     result: result.clone(),
                 });
 
                 // Update guess for game 1
-                game_session.game_1_guesses += 1;
+                game_session.game_1_guesses_count += 1;
 
                 // Update score
                 let time_penalty = ((current_time - game_session.start_time) / 60) as u32 * 10;
-                let guess_penalty = game_session.guesses.len() as u32 * 50;
+                let guess_penalty = game_session.game_1_guesses_count * 50;
                 game_session.score = game_session
                     .score
                     .saturating_sub(time_penalty + guess_penalty);
@@ -164,34 +161,25 @@ pub mod soddle_game {
             }
             2 => {
                 // Logic for game type 2 (tweet guessing)
-                // Update guess for game 2
-                game_session.game_2_guesses += 1;
+                // Update guess for game 2'
+                let count:usize = game_session.game_2_guesses_count as usize;
+                game_session.game_2_guesses[count] = Game2GuessResult {
+                    kol: guess.id.clone(),
+                    result: guess.id == game_session.kol.id,
+                };
+                game_session.game_2_guesses_count += 1;
+
                 if guess.id == game_session.kol.id {
                     game_session.game_2_completed = true;
                     game_session.game_2_score = game_session.score;
                 } else {
                     // Update score
+                    let current_time = Clock::get()?.unix_timestamp;
                     let time_penalty = ((current_time - game_session.start_time) / 60) as u32 * 10;
-                    let guess_penalty = game_session.guesses.len() as u32 * 50;
+                    let guess_penalty = game_session.game_2_guesses_count * 50;
                     game_session.score = game_session
                         .score
                         .saturating_sub(time_penalty + guess_penalty);
-                    game_session.guesses.push(GuessResult {
-                        kol: guess,
-                        result: <[AttributeResult; 7]>::try_from(vec![AttributeResult::Correct; 7])
-                            .unwrap(),
-                    });
-                }
-            }
-            3 => {
-                // Logic for game type 3 (existing logic)
-                // Update guess for game 3
-                game_session.game_3_guesses += 1;
-                if guess.id == game_session.kol.id {
-                    game_session.game_3_completed = true;
-                    game_session.game_3_score = game_session.score;
-                } else {
-                    game_session.score = game_session.score.saturating_sub(50);
                 }
             }
             _ => return Err(SoddleError::InvalidGameType.into()),
@@ -357,17 +345,16 @@ pub struct GameSession {
     pub start_time: i64,
     pub game_1_completed: bool,
     pub game_2_completed: bool,
-    pub game_3_completed: bool,
     pub game_1_score: u32,
     pub game_2_score: u32,
-    pub game_3_score: u32,
-    pub game_1_guesses: u32,
-    pub game_2_guesses: u32,
-    pub game_3_guesses: u32,
+    pub game_1_guesses_count: u32,
+    pub game_2_guesses_count: u32,
     pub total_score: u32,
     pub target_index: u8,
     #[max_len(MAX_GUESSES)]
-    pub guesses: Vec<GuessResult>,
+    pub game_1_guesses: Vec<Game1GuessResult>,
+    #[max_len(MAX_GUESSES)]
+    pub game_2_guesses: [Game2GuessResult; MAX_GUESSES],
     pub completed: bool,
     pub score: u32,
     pub deposit: u64,
@@ -413,10 +400,17 @@ pub struct Competition {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 #[derive(InitSpace)]
-pub struct GuessResult {
+pub struct Game1GuessResult {
     pub kol: KOL,
     #[max_len(7)]
     pub result: [AttributeResult; 7],
+}
+
+#[derive(InitSpace,AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct Game2GuessResult {
+    #[max_len(15)]
+    pub kol: String,
+    pub result: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
@@ -427,7 +421,7 @@ pub enum AttributeResult {
     Lower,
 }
 
-impl anchor_lang::Space for AttributeResult {
+impl Space for AttributeResult {
     const INIT_SPACE: usize = 1; // Enum variants are represented as u8
 }
 
@@ -438,18 +432,18 @@ pub struct TweetGuessEvent {
 }
 #[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Clone, Debug, InitSpace)]
 pub struct KOL {
-    #[max_len(50)]
-    pub id: String,
-    #[max_len(100)]
+    #[max_len(15)]
+    pub id: String,  // Store the ObjectId as 12 bytes
+    #[max_len(30)]
     pub name: String,
     pub age: u8,
-    #[max_len(50)]
+    #[max_len(30)]
     pub country: String,
-    pub account_creation: u16,
-    #[max_len(200)]
+    #[max_len(100)]
     pub pfp: String,
+    pub account_creation: u16,
     pub followers: u32,
-    #[max_len(50)]
+    #[max_len(20)]
     pub ecosystem: String,
 }
 

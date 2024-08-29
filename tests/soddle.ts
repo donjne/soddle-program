@@ -59,15 +59,22 @@ describe("Soddle Game", () => {
     });
 
     it("Starts a game session", async () => {
-        const kol = {
-            id: "1",
-            name: "John Doe",
-            age: 30,
+        const kol =  {
+            id: "66c7dbc1d484e54c72d2406d",
+            name: "Gary Gensler",
+            age: 65,
             country: "USA",
-            accountCreation: 2020,
-            pfp: "https://example.com/pfp.jpg",
-            followers: 10000,
-            ecosystem: "Solana",
+            pfp: "https://res.cloudinary.com/dbuaprzc0/image/upload/f_auto,q_auto/v1/Soddle/wsee5fbcouelnh5u1vut",
+            accountCreation: 2021,
+            followers: 750000,
+            ecosystem: "Government",
+            tweets: [
+                "Let's talk digital engagement practices.\nPredictive data analytics & Al are transforming so much of our economy.\nFinance is no exception.\nAl already is being used for call centers, account openings, compliance\nprograms, trading algorithms, & sentiment analysis, among others.",
+                "If your friend, family member, or coworker encouraged you to invest in an\nopportunity guaranteed to pay at least IO percent returns, what would you\nLearn more about affinity fraud and what you can do to avoid it:\ninvestor.gov/protect-your-i...",
+                "A thread\nSome things to keep in mind if you're considering investing in crypto\nassets:",
+                "Coinbase's alleged failures deprive investors of critical protections,\nincluding rulebooks that prevent fraud and manipulation, proper\ndisclosure, safeguards against conflicts of interest, and routine\ninspection by the SEC.",
+                "The @SECGov\ntwitter account was\ncompromised, and an unauthorized tweet was\nposted. The SEC has not approved the listing\nand trading of spot bitcoin exchange-traded\nproducts."
+            ]
         };
 
         // @ts-ignore
@@ -116,27 +123,34 @@ describe("Soddle Game", () => {
                 .rpc();
 
             const gameSession = await program.account.gameSession.fetch(gameSessionPda);
-            expect(gameSession.game1Guesses).to.be.equal(i + 1);
+            expect(gameSession.game1GuessesCount).to.be.equal(i + 1);
             expect(gameSession.score).to.be.lessThan(1000);
             expect(gameSession.completed).to.be.false;
         }
 
         const gameSession = await program.account.gameSession.fetch(gameSessionPda);
         // console.log(gameSession, gameSession.guesses)
-        expect(gameSession.game1Guesses).to.be.equal(3);
+        expect(gameSession.game1GuessesCount).to.be.equal(3);
         expect(gameSession.score).to.be.lessThan(850); // Accounting for time and guess penalties
     });
 
     it("Makes a correct guess in the first game", async () => {
         const correctGuess = {
-            id: "1",
-            name: "John Doe",
-            age: 30,
+            id: "66c7dbc1d484e54c72d2406d",
+            name: "Gary Gensler",
+            age: 65,
             country: "USA",
-            accountCreation: 2020,
-            pfp: "https://example.com/pfp.jpg",
-            followers: 10000,
-            ecosystem: "Solana",
+            pfp: "https://res.cloudinary.com/dbuaprzc0/image/upload/f_auto,q_auto/v1/Soddle/wsee5fbcouelnh5u1vut",
+            accountCreation: 2021,
+            followers: 750000,
+            ecosystem: "Government",
+            tweets: [
+                "Let's talk digital engagement practices.\nPredictive data analytics & Al are transforming so much of our economy.\nFinance is no exception.\nAl already is being used for call centers, account openings, compliance\nprograms, trading algorithms, & sentiment analysis, among others.",
+                "If your friend, family member, or coworker encouraged you to invest in an\nopportunity guaranteed to pay at least IO percent returns, what would you\nLearn more about affinity fraud and what you can do to avoid it:\ninvestor.gov/protect-your-i...",
+                "A thread\nSome things to keep in mind if you're considering investing in crypto\nassets:",
+                "Coinbase's alleged failures deprive investors of critical protections,\nincluding rulebooks that prevent fraud and manipulation, proper\ndisclosure, safeguards against conflicts of interest, and routine\ninspection by the SEC.",
+                "The @SECGov\ntwitter account was\ncompromised, and an unauthorized tweet was\nposted. The SEC has not approved the listing\nand trading of spot bitcoin exchange-traded\nproducts."
+            ]
         };
 
         await program.methods
@@ -152,7 +166,7 @@ describe("Soddle Game", () => {
 
         const gameSession = await program.account.gameSession.fetch(gameSessionPda);
         // console.log(gameSession, gameSession.guesses)
-        expect(gameSession.game1Guesses).to.be.equal(4);
+        expect(gameSession.game1GuessesCount).to.be.equal(4);
         expect(gameSession.game1Completed).to.be.true;
         expect(gameSession.game1Score).to.be.greaterThan(0);
         expect(gameSession.game1Score).to.be.lessThan(850); // Accounting for previous incorrect guesses and time penalty
@@ -195,27 +209,34 @@ describe("Soddle Game", () => {
                 .rpc();
 
             const gameSession = await program.account.gameSession.fetch(gameSessionPda);
-            expect(gameSession.game2Guesses).to.be.equal(i + 1);
+            expect(gameSession.game2GuessesCount).to.be.equal(i + 1);
             expect(gameSession.score).to.be.lessThan(1000);
             expect(gameSession.completed).to.be.false;
             expect(gameSession.game2Completed).to.be.false;
         }
 
         const gameSession = await program.account.gameSession.fetch(gameSessionPda);
-        expect(gameSession.game2Guesses).to.be.equal(2);
+        expect(gameSession.game2GuessesCount).to.be.equal(2);
         expect(gameSession.score).to.be.lessThan(900); // Accounting for time and guess penalties
     });
 
     it("Makes a correct guess in the second game", async () => {
-        const correctGuess = {
-            id: "1",
-            name: "Alice Smith",
-            age: 28,
-            country: "UK",
-            accountCreation: 2018,
-            pfp: "https://example.com/alice.jpg",
-            followers: 50000,
-            ecosystem: "Ethereum",
+        const correctGuess =  {
+            id: "66c7dbc1d484e54c72d2406d",
+            name: "Gary Gensler",
+            age: 65,
+            country: "USA",
+            pfp: "https://res.cloudinary.com/dbuaprzc0/image/upload/f_auto,q_auto/v1/Soddle/wsee5fbcouelnh5u1vut",
+            accountCreation: 2021,
+            followers: 750000,
+            ecosystem: "Government",
+            tweets: [
+                "Let's talk digital engagement practices.\nPredictive data analytics & Al are transforming so much of our economy.\nFinance is no exception.\nAl already is being used for call centers, account openings, compliance\nprograms, trading algorithms, & sentiment analysis, among others.",
+                "If your friend, family member, or coworker encouraged you to invest in an\nopportunity guaranteed to pay at least IO percent returns, what would you\nLearn more about affinity fraud and what you can do to avoid it:\ninvestor.gov/protect-your-i...",
+                "A thread\nSome things to keep in mind if you're considering investing in crypto\nassets:",
+                "Coinbase's alleged failures deprive investors of critical protections,\nincluding rulebooks that prevent fraud and manipulation, proper\ndisclosure, safeguards against conflicts of interest, and routine\ninspection by the SEC.",
+                "The @SECGov\ntwitter account was\ncompromised, and an unauthorized tweet was\nposted. The SEC has not approved the listing\nand trading of spot bitcoin exchange-traded\nproducts."
+            ]
         };
 
         await program.methods

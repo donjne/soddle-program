@@ -5,10 +5,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-soddle = "9b4J9BTbBnKfrfZ7YC1WpArk1z9DgQuTEhWJtoBshz7w"
+soddle = "2s6ZwgHDs31jPwM2AHwLRQhqcDuAQXY5zSLF3ZceQrMC"
 
 [programs.mainnet]
-soddle = "9b4J9BTbBnKfrfZ7YC1WpArk1z9DgQuTEhWJtoBshz7w"
+soddle = "2s6ZwgHDs31jPwM2AHwLRQhqcDuAQXY5zSLF3ZceQrMC"
 
 [registry]
 url = "https://api.apr.dev"
