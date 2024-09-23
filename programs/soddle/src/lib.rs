@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("2s6ZwgHDs31jPwM2AHwLRQhqcDuAQXY5zSLF3ZceQrMC");
+declare_id!("9oHdf9UFE9zbQPUDiBn27qX9Rqc7fVEpHSdxVpkwx6z4");
 
 const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
@@ -43,6 +43,17 @@ pub mod soddle_game {
     );
         let game_session = &mut ctx.accounts.game_session;
 
+        // Check if this is a new session or if the existing session is completed
+        if game_session.player == Pubkey::default() || game_session.completed || game_session.game_1_completed || game_session.game_2_completed {
+            // This is a new session or the existing one is completed, reinitialize it
+            game_session.player = ctx.accounts.player.key();
+            game_session.competition_id = ctx.accounts.game_state.current_competition.id.clone();
+            game_session.deposit = 0; // Will be updated after transfer
+            game_session.completed = false;
+            game_session.game_1_completed = false;
+            game_session.game_2_completed = false;
+        }
+
         // Check if the player has already completed this game type
         match game_type {
             1 => require!(!game_session.game_1_completed, SoddleError::GameAlreadyPlayed),
@@ -64,33 +75,36 @@ pub mod soddle_game {
             ],
         )?;
 
-        // Initialize common game session variables
-        game_session.player = ctx.accounts.player.key();
-        game_session.competition_id = ctx.accounts.game_state.current_competition.id.clone();
+        // Update game session variables
         game_session.game_type = game_type;
         game_session.start_time = Clock::get()?.unix_timestamp;
-        game_session.completed = false;
-        game_session.score = 1000;
-        game_session.deposit = REQUIRED_DEPOSIT;
+        game_session.score = 0;
+        game_session.deposit += REQUIRED_DEPOSIT;
         game_session.kol = kol;
 
         // Initialize game-type specific variables
-        match game_type {
-            1 => {
-                game_session.game_type = game_type;
+        // match game_type {
+        //     1 => {
+        //         game_session.game_1_completed = false;
+        //         game_session.game_1_score = 1000;
+        //         game_session.game_1_guesses_count = 0;
+        //     },
+        //     2 => {
+        //         game_session.target_index = (Clock::get()?.unix_timestamp % 10) as u8;
+        //         game_session.game_2_completed = false;
+        //         game_session.game_2_score = 1000;
+        //         game_session.game_2_guesses_count = 0;
+        //     },
+        //     _ => unreachable!(),
+        // }
+
                 game_session.game_1_completed = false;
                 game_session.game_1_score = 1000;
                 game_session.game_1_guesses_count = 0;
-            },
-            2 => {
-                game_session.game_type = game_type;
                 game_session.target_index = (Clock::get()?.unix_timestamp % 10) as u8;
                 game_session.game_2_completed = false;
                 game_session.game_2_score = 1000;
                 game_session.game_2_guesses_count = 0;
-            },
-            _ => unreachable!(),
-        }
 
         msg!("Game session started for game type: {}", game_type);
         msg!("Competition ID: {}", game_session.competition_id);
@@ -119,6 +133,13 @@ pub mod soddle_game {
             _ => return Err(SoddleError::InvalidGameType.into()),
         }
 
+        if game_session.game_1_completed || game_session.game_2_completed {
+            // Reset to initial state
+            game_session.player = Pubkey::default();
+
+            msg!("Game session reset to initial state");
+        }
+
         Ok(())
     }
 
@@ -144,10 +165,10 @@ pub struct StartGameSession<'info> {
     #[account(mut)]
     pub game_state: Account<'info, GameState>,
     #[account(
-        init,
+        init_if_needed,
         payer = player,
         space = 8 + GameSession::INIT_SPACE,
-        seeds = [b"game_session", player.key().as_ref()],
+        seeds = [b"game_session", player.key().as_ref(),game_state.current_competition.id.as_bytes()],
         bump
     )]
     pub game_session: Account<'info, GameSession>,
@@ -202,6 +223,7 @@ pub struct GameSession {
     pub kol: KOL,
     #[max_len(15)]
     pub competition_id: String,
+
 }
 
 #[derive(Accounts)]

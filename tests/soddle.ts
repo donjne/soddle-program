@@ -2,8 +2,9 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { SoddleGame } from "../target/types/soddle_game";
 import { expect } from "chai";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-
+import { Keypair, PublicKey, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import * as buffer from "node:buffer";
+const REQUIRED_DEPOSIT = (0.001 * LAMPORTS_PER_SOL)
 describe("soddle-game", () => {
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(provider);
@@ -12,7 +13,6 @@ describe("soddle-game", () => {
     const player = Keypair.generate();
 
     let gameStatePda: PublicKey;
-    let gameSessionPda: PublicKey;
     let vaultPda: PublicKey;
     let authorityPda: PublicKey;
 
@@ -25,10 +25,7 @@ describe("soddle-game", () => {
             [Buffer.from("game_state")],
             program.programId
         );
-        [gameSessionPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("game_session"), player.publicKey.toBuffer()],
-            program.programId
-        );
+
         [vaultPda] = PublicKey.findProgramAddressSync(
             [Buffer.from("vault")],
             program.programId
@@ -40,6 +37,7 @@ describe("soddle-game", () => {
     });
 
     it("Initializes the game", async () => {
+        // @ts-ignore
         await program.methods
             .initializeGame()
             .accounts({
@@ -52,8 +50,14 @@ describe("soddle-game", () => {
         const gameState = await program.account.gameState.fetch(gameStatePda);
         expect(gameState.currentCompetition.id).to.include("COMP");
     });
-
+let gameSessionPda: PublicKey
     it("Starts a game session", async () => {
+        const gameState = await program.account.gameState.fetch(gameStatePda);
+         [gameSessionPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("game_session"), player.publicKey.toBuffer(), Buffer.from(gameState.currentCompetition.id)],
+            program.programId
+        );
+
         const kol = {
             id: "KOL123",
             name: "Test KOL",
@@ -78,24 +82,33 @@ describe("soddle-game", () => {
             .rpc();
 
         const gameSession = await program.account.gameSession.fetch(gameSessionPda);
+        console.log(gameState, gameSession)
         expect(gameSession.gameType).to.equal(1);
         expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
+        expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
+        expect(gameSession.competitionId.toString()).to.equal(gameState.currentCompetition.id.toString());
+        expect(gameSession.gameType).to.equal(1);
+        expect(gameSession.completed).to.be.false;
+        expect(gameSession.score.toString()).to.equal("1000");
+        expect(gameSession.deposit.toNumber()).to.equal(REQUIRED_DEPOSIT);
     });
 
     it("Submits a score", async () => {
-        console.log(player.publicKey.toBase58(), provider.wallet.publicKey.toBase58())
-        await program.methods
-            .submitScore(500, 5)
+        const gameType = 1;
+        const score = 800;
+        const guesses = 3;
+
+        await program.methods.submitScore(gameType, score, guesses)
             .accounts({
                 gameSession: gameSessionPda,
                 player: player.publicKey,
                 authority: provider.wallet.publicKey,
                 systemProgram: SystemProgram.programId,
             })
-            .signers([player])
             .rpc();
 
-        const gameSession = await program.account.gameSession.fetch(gameSessionPda);
-        expect(gameSession.score).to.equal(500);
+        const gameSessionAccount = await program.account.gameSession.fetch(gameSessionPda);
+        expect(gameSessionAccount.game1Score).to.equal(score);
+        expect(gameSessionAccount.game1GuessesCount).to.equal(guesses);
     });
 });
