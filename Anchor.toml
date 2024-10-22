@@ -5,16 +5,19 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-soddle = "9oHdf9UFE9zbQPUDiBn27qX9Rqc7fVEpHSdxVpkwx6z4"
+soddle = "8buzRBsMxWpYvLpxqSNogsdP7reUGRNFR8EEUkZZ9c33"
 
 [programs.mainnet]
-soddle = "9oHdf9UFE9zbQPUDiBn27qX9Rqc7fVEpHSdxVpkwx6z4"
+soddle = "8buzRBsMxWpYvLpxqSNogsdP7reUGRNFR8EEUkZZ9c33"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://staging-rpc.dev2.eclipsenetwork.xyz"
+#cluster = "https://staging-rpc.dev2.eclipsenetwork.xyz"
+cluster = "https://devnet.sonic.game"
+
+#wallet = "~/.config/solana/id.json"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

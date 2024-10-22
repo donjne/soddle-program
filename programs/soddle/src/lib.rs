@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("9oHdf9UFE9zbQPUDiBn27qX9Rqc7fVEpHSdxVpkwx6z4");
+declare_id!("8buzRBsMxWpYvLpxqSNogsdP7reUGRNFR8EEUkZZ9c33");
 
-const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
+// const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
+const REQUIRED_DEPOSIT: u64 = (0.02 * LAMPORTS_PER_SOL as f64) as u64;
+
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
 
 #[program]
@@ -291,6 +293,8 @@ pub struct KOL {
     pub age: u8,
     #[max_len(30)]
     pub country: String,
+    #[max_len(30)]
+    pub pfp_type: String,
     #[max_len(100)]
     pub pfp: String,
     pub account_creation: u16,
