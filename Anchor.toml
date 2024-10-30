@@ -5,21 +5,29 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-soddle = "4DJ2RtFHVUNgtZTNhioSBHnKqUqBeCbHfy6L1z6HqkjZ"
+soddle = "3W7TddatemAfjHziE7VqLhxb1zyGdsCVk8Z7bR9LTjps"
+
+[programs.devnet]
+soddle = "3W7TddatemAfjHziE7VqLhxb1zyGdsCVk8Z7bR9LTjps"
 
 [programs.mainnet]
-soddle = "4DJ2RtFHVUNgtZTNhioSBHnKqUqBeCbHfy6L1z6HqkjZ"
+soddle = "3W7TddatemAfjHziE7VqLhxb1zyGdsCVk8Z7bR9LTjps"
+
 
 [registry]
-url = "https://api.apr.dev"
+url = "https://anchor.projectserum.com"
+
+[test.validator]
+program_buffer_size = 300000  # Gives you ~30KB of growth room
 
 [provider]
-cluster = "localnet"
+cluster = "https://devnet.helius-rpc.com/?api-key=1d33d108-520d-4e5c-998e-548383eb6665"
 #cluster = "https://staging-rpc.dev2.eclipsenetwork.xyz"
 #cluster = "https://devnet.sonic.game"
+#cluster = "localnet"
 
+wallet = "soddle-keypair.json"
 #wallet = "~/.config/solana/id.json"
-wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

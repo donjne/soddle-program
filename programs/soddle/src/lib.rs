@@ -1,13 +1,13 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("4DJ2RtFHVUNgtZTNhioSBHnKqUqBeCbHfy6L1z6HqkjZ");
+declare_id!("3W7TddatemAfjHziE7VqLhxb1zyGdsCVk8Z7bR9LTjps");
 
 // const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const REQUIRED_DEPOSIT: u64 = (0.02 * LAMPORTS_PER_SOL as f64) as u64;
-const PROGRAM_AUTHORITY: Pubkey = pubkey!("6kexz7VwA5J895tdWaDP6b4S9okQez1Att6E2jzWLXMk");
+const PROGRAM_AUTHORITY: Pubkey = pubkey!("BWkwaj7csLkCk5JzfpSdZ2FLLeF3zA8qKEZjooC6uWEY");
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
-const SODDLE_WALLET: Pubkey = pubkey!("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
+const SODDLE_WALLET: Pubkey = pubkey!("7Uo97cVpoRvP72iVMsgdcJD8dSBGvyoNT1jz49zmgYva");
 const REWARD_DISTRIBUTION_VAULT: Pubkey = pubkey!("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
 
 #[program]
@@ -65,7 +65,8 @@ pub mod soddle_game {
                 SoddleError::AlreadyPlayedToday
             );
         }
-
+        // In start_game_session instruction
+        game_session.player = ctx.accounts.player.key();
         game_session.competition_id = ctx.accounts.game_state.current_competition.id.clone();
         game_session.deposit = 0;
         game_session.completed = false;
@@ -144,33 +145,57 @@ pub mod soddle_game {
     }
 
 
-// New function to distribute funds
-pub fn distribute_funds(ctx: Context<DistributeFunds>) -> Result<()> {
-    require!(
-            ctx.accounts.authority.key() == PROGRAM_AUTHORITY,
-            SoddleError::UnauthorizedAuthority
-        );
+    // New function to distribute funds
+    pub fn distribute_funds(ctx: Context<DistributeFunds>) -> Result<()> {
+        require!(
+        ctx.accounts.authority.key() == PROGRAM_AUTHORITY,
+        SoddleError::UnauthorizedAuthority
+    );
 
-    let vault_balance = ctx.accounts.vault.lamports();
-    let soddle_vault_amount = vault_balance
-        .checked_mul(25)
-        .ok_or(SoddleError::MathOverflow)?
-        .checked_div(1000)
-        .ok_or(SoddleError::MathOverflow)?;
-    let reward_distribution_vault_amount = vault_balance
-        .checked_sub(soddle_vault_amount)
-        .ok_or(SoddleError::MathOverflow)?;
+        let vault_balance = ctx.accounts.vault.lamports();
 
-    // Transfer to first distribution address (2.5%)
-    **ctx.accounts.vault.try_borrow_mut_lamports()? -= soddle_vault_amount;
-    **ctx.accounts.reward_distribution_vault.try_borrow_mut_lamports()? += soddle_vault_amount;
+        // Add check for empty vault
+        require!(vault_balance > 0, SoddleError::EmptyVault);
 
-    // Transfer remaining to second distribution address
-    **ctx.accounts.vault.try_borrow_mut_lamports()? -= reward_distribution_vault_amount;
-    **ctx.accounts.reward_distribution_vault.try_borrow_mut_lamports()? += reward_distribution_vault_amount;
+        let soddle_vault_amount = vault_balance
+            .checked_mul(25)
+            .ok_or(SoddleError::MathOverflow)?
+            .checked_div(1000)
+            .ok_or(SoddleError::MathOverflow)?; // 2.5%
+        let reward_distribution_vault_amount = vault_balance
+            .checked_sub(soddle_vault_amount)
+            .ok_or(SoddleError::MathOverflow)?; // 97.5%
 
-    Ok(())
-}
+        // Transfer to Soddle wallet using invoke
+        anchor_lang::solana_program::program::invoke_signed(
+            &anchor_lang::solana_program::system_instruction::transfer(
+                &ctx.accounts.vault.key(),
+                &SODDLE_WALLET,
+                soddle_vault_amount,
+            ),
+            &[
+                ctx.accounts.vault.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[b"vault", &[ctx.bumps.vault]]],
+        )?;
+
+        // Transfer to reward distribution vault using invoke
+        anchor_lang::solana_program::program::invoke_signed(
+            &anchor_lang::solana_program::system_instruction::transfer(
+                &ctx.accounts.vault.key(),
+                &REWARD_DISTRIBUTION_VAULT,
+                reward_distribution_vault_amount,
+            ),
+            &[
+                ctx.accounts.vault.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[b"vault", &[ctx.bumps.vault]]],
+        )?;
+
+        Ok(())
+    }
 }
 #[derive(Accounts)]
 pub struct InitializeGame<'info> {
@@ -189,11 +214,7 @@ pub struct InitializeGame<'info> {
 
 #[derive(Accounts)]
 pub struct StartGameSession<'info> {
-    #[account(
-        mut,
-        seeds = [b"game_state"],
-        bump
-    )]
+    #[account(mut)]
     pub game_state: Account<'info, GameState>,
     #[account(
         init_if_needed,
@@ -228,6 +249,7 @@ pub struct SubmitGameScore<'info> {
 }
 
 // New struct for fund distribution
+// In the program, modify DistributeFunds context
 #[derive(Accounts)]
 pub struct DistributeFunds<'info> {
     #[account(mut)]
@@ -239,10 +261,10 @@ pub struct DistributeFunds<'info> {
     )]
     /// CHECK: This is the vault account that holds the deposits
     pub vault: AccountInfo<'info>,
-    /// CHECK: This is the first distribution address
+    /// CHECK: This is the soddle wallet
     #[account(mut, constraint = soddle_vault.key() == SODDLE_WALLET)]
     pub soddle_vault: AccountInfo<'info>,
-    /// CHECK: This is the second distribution address
+    /// CHECK: This is the reward distribution vault
     #[account(mut, constraint = reward_distribution_vault.key() == REWARD_DISTRIBUTION_VAULT)]
     pub reward_distribution_vault: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
@@ -385,5 +407,7 @@ pub enum SoddleError {
     #[msg("Already played today")]
     AlreadyPlayedToday,
     #[msg("Math Overflow Distribution Error")]
-    MathOverflow
+    MathOverflow,
+    #[msg("Cannot distribute funds from an empty vault")]
+    EmptyVault
 }
