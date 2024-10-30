@@ -4,7 +4,6 @@ import { SoddleGame } from "../target/types/soddle_game";
 import { expect } from "chai";
 import { Keypair, PublicKey, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes';
-import * as buffer from "node:buffer";
 const REQUIRED_DEPOSIT = (0.001 * LAMPORTS_PER_SOL)
 describe("soddle-game",  () => {
     const provider = anchor.AnchorProvider.env();
@@ -12,13 +11,11 @@ describe("soddle-game",  () => {
 
     const program = anchor.workspace.SoddleGame as Program<SoddleGame>;
     const player = Keypair.fromSecretKey(bs58.decode("3vxNdn1ujj2HAs2vd8hEwrnMbnPUTtvyHhKkm9AYXsm3c97oevWmBWqvZzp48zWN5XAhFocFr3FQBszKCPedqC3N"))
-    const PROGRAM_AUTHORITY = new PublicKey("6kexz7VwA5J895tdWaDP6b4S9okQez1Att6E2jzWLXMk");
     const SODDLE_WALLET = new PublicKey("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
     const REWARD_DISTRIBUTION_VAULT = new PublicKey("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
 
     let gameStatePda: PublicKey;
     let vaultPda: PublicKey;
-    let authorityPda: PublicKey;
 
         // Derive PDAs
         [gameStatePda] = PublicKey.findProgramAddressSync(
@@ -28,10 +25,6 @@ describe("soddle-game",  () => {
 
         [vaultPda] = PublicKey.findProgramAddressSync(
             [Buffer.from("vault")],
-            program.programId
-        );
-         [authorityPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("authority")],
             program.programId
         );
 
