@@ -1,18 +1,27 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("8buzRBsMxWpYvLpxqSNogsdP7reUGRNFR8EEUkZZ9c33");
+declare_id!("4DJ2RtFHVUNgtZTNhioSBHnKqUqBeCbHfy6L1z6HqkjZ");
 
 // const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const REQUIRED_DEPOSIT: u64 = (0.02 * LAMPORTS_PER_SOL as f64) as u64;
-
+const PROGRAM_AUTHORITY: Pubkey = pubkey!("6kexz7VwA5J895tdWaDP6b4S9okQez1Att6E2jzWLXMk");
 const COMPETITION_DURATION: i64 = 24 * 60 * 60; // 24 hours in seconds
+const SODDLE_WALLET: Pubkey = pubkey!("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
+const REWARD_DISTRIBUTION_VAULT: Pubkey = pubkey!("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
 
 #[program]
 pub mod soddle_game {
     use super::*;
 
     pub fn initialize_game(ctx: Context<InitializeGame>) -> Result<()> {
+
+        // Check if the signer is the authorized authority
+        require!(
+            ctx.accounts.authority.key() == PROGRAM_AUTHORITY,
+            SoddleError::UnauthorizedAuthority
+        );
+
         let game_state = &mut ctx.accounts.game_state;
 
         let clock = Clock::get()?;
@@ -44,17 +53,25 @@ pub mod soddle_game {
         SoddleError::InvalidGameType
     );
         let game_session = &mut ctx.accounts.game_session;
+        let clock = Clock::get()?;
+        let current_time = clock.unix_timestamp;
 
-        // Check if this is a new session or if the existing session is completed
-        if game_session.player == Pubkey::default() || game_session.completed || game_session.game_1_completed || game_session.game_2_completed {
-            // This is a new session or the existing one is completed, reinitialize it
-            game_session.player = ctx.accounts.player.key();
-            game_session.competition_id = ctx.accounts.game_state.current_competition.id.clone();
-            game_session.deposit = 0; // Will be updated after transfer
-            game_session.completed = false;
-            game_session.game_1_completed = false;
-            game_session.game_2_completed = false;
+        // Check if player has played today
+        if game_session.player != Pubkey::default() {
+            let last_play_day = game_session.start_time / (24 * 60 * 60);
+            let current_day = current_time / (24 * 60 * 60);
+            require!(
+                last_play_day != current_day,
+                SoddleError::AlreadyPlayedToday
+            );
         }
+
+        game_session.competition_id = ctx.accounts.game_state.current_competition.id.clone();
+        game_session.deposit = 0;
+        game_session.completed = false;
+        game_session.game_1_completed = false;
+        game_session.game_2_completed = false;
+        game_session.start_time = current_time;
 
         // Check if the player has already completed this game type
         match game_type {
@@ -79,34 +96,15 @@ pub mod soddle_game {
 
         // Update game session variables
         game_session.game_type = game_type;
-        game_session.start_time = Clock::get()?.unix_timestamp;
         game_session.score = 0;
         game_session.deposit += REQUIRED_DEPOSIT;
         game_session.kol = kol;
+        game_session.game_1_score = 1000;
+        game_session.game_1_guesses_count = 0;
+        game_session.target_index = (current_time % 10) as u8;
+        game_session.game_2_score = 1000;
+        game_session.game_2_guesses_count = 0;
 
-        // Initialize game-type specific variables
-        // match game_type {
-        //     1 => {
-        //         game_session.game_1_completed = false;
-        //         game_session.game_1_score = 1000;
-        //         game_session.game_1_guesses_count = 0;
-        //     },
-        //     2 => {
-        //         game_session.target_index = (Clock::get()?.unix_timestamp % 10) as u8;
-        //         game_session.game_2_completed = false;
-        //         game_session.game_2_score = 1000;
-        //         game_session.game_2_guesses_count = 0;
-        //     },
-        //     _ => unreachable!(),
-        // }
-
-                game_session.game_1_completed = false;
-                game_session.game_1_score = 1000;
-                game_session.game_1_guesses_count = 0;
-                game_session.target_index = (Clock::get()?.unix_timestamp % 10) as u8;
-                game_session.game_2_completed = false;
-                game_session.game_2_score = 1000;
-                game_session.game_2_guesses_count = 0;
 
         msg!("Game session started for game type: {}", game_type);
         msg!("Competition ID: {}", game_session.competition_id);
@@ -145,8 +143,35 @@ pub mod soddle_game {
         Ok(())
     }
 
-}
 
+// New function to distribute funds
+pub fn distribute_funds(ctx: Context<DistributeFunds>) -> Result<()> {
+    require!(
+            ctx.accounts.authority.key() == PROGRAM_AUTHORITY,
+            SoddleError::UnauthorizedAuthority
+        );
+
+    let vault_balance = ctx.accounts.vault.lamports();
+    let soddle_vault_amount = vault_balance
+        .checked_mul(25)
+        .ok_or(SoddleError::MathOverflow)?
+        .checked_div(1000)
+        .ok_or(SoddleError::MathOverflow)?;
+    let reward_distribution_vault_amount = vault_balance
+        .checked_sub(soddle_vault_amount)
+        .ok_or(SoddleError::MathOverflow)?;
+
+    // Transfer to first distribution address (2.5%)
+    **ctx.accounts.vault.try_borrow_mut_lamports()? -= soddle_vault_amount;
+    **ctx.accounts.reward_distribution_vault.try_borrow_mut_lamports()? += soddle_vault_amount;
+
+    // Transfer remaining to second distribution address
+    **ctx.accounts.vault.try_borrow_mut_lamports()? -= reward_distribution_vault_amount;
+    **ctx.accounts.reward_distribution_vault.try_borrow_mut_lamports()? += reward_distribution_vault_amount;
+
+    Ok(())
+}
+}
 #[derive(Accounts)]
 pub struct InitializeGame<'info> {
     #[account(
@@ -164,7 +189,11 @@ pub struct InitializeGame<'info> {
 
 #[derive(Accounts)]
 pub struct StartGameSession<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"game_state"],
+        bump
+    )]
     pub game_state: Account<'info, GameState>,
     #[account(
         init_if_needed,
@@ -198,6 +227,27 @@ pub struct SubmitGameScore<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// New struct for fund distribution
+#[derive(Accounts)]
+pub struct DistributeFunds<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"vault"],
+        bump
+    )]
+    /// CHECK: This is the vault account that holds the deposits
+    pub vault: AccountInfo<'info>,
+    /// CHECK: This is the first distribution address
+    #[account(mut, constraint = soddle_vault.key() == SODDLE_WALLET)]
+    pub soddle_vault: AccountInfo<'info>,
+    /// CHECK: This is the second distribution address
+    #[account(mut, constraint = reward_distribution_vault.key() == REWARD_DISTRIBUTION_VAULT)]
+    pub reward_distribution_vault: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 
 #[account]
 #[derive(InitSpace)]
@@ -225,7 +275,6 @@ pub struct GameSession {
     pub kol: KOL,
     #[max_len(15)]
     pub competition_id: String,
-
 }
 
 #[derive(Accounts)]
@@ -331,4 +380,10 @@ pub enum SoddleError {
     GameNotCompleted,
     #[msg("This player is invalid")]
     InvalidPlayer,
+    #[msg("Unauthorized authority")]
+    UnauthorizedAuthority,
+    #[msg("Already played today")]
+    AlreadyPlayedToday,
+    #[msg("Math Overflow Distribution Error")]
+    MathOverflow
 }

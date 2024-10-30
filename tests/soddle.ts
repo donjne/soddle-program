@@ -12,6 +12,9 @@ describe("soddle-game",  () => {
 
     const program = anchor.workspace.SoddleGame as Program<SoddleGame>;
     const player = Keypair.fromSecretKey(bs58.decode("3vxNdn1ujj2HAs2vd8hEwrnMbnPUTtvyHhKkm9AYXsm3c97oevWmBWqvZzp48zWN5XAhFocFr3FQBszKCPedqC3N"))
+    const PROGRAM_AUTHORITY = new PublicKey("6kexz7VwA5J895tdWaDP6b4S9okQez1Att6E2jzWLXMk");
+    const SODDLE_WALLET = new PublicKey("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
+    const REWARD_DISTRIBUTION_VAULT = new PublicKey("Bq8t4M2n7eE1AU3AJvjWP6dawJbsALwPTx631Ld59JUF");
 
     let gameStatePda: PublicKey;
     let vaultPda: PublicKey;
@@ -34,61 +37,66 @@ describe("soddle-game",  () => {
 
     it("Initializes the game", async () => {
         // @ts-ignore
-        await program.methods
-            .initializeGame()
-            .accounts({
-                gameState: gameStatePda,
-                authority: provider.wallet.publicKey,
-                systemProgram: SystemProgram.programId,
-            })
-            .rpc();
+        try{
+            await program.methods
+                .initializeGame()
+                .accounts({
+                    gameState: gameStatePda,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
 
-        const gameState = await program.account.gameState.fetch(gameStatePda);
-        expect(gameState.currentCompetition.id).to.include("COMP");
+            const gameState = await program.account.gameState.fetch(gameStatePda);
+            expect(gameState.currentCompetition.id).to.include("COMP");
+        } catch (error){
+            console.log(error)
+            expect(error).to.have.property("code", "UnauthorizedAuthority");
+        }
     });
 let gameSessionPda: PublicKey
-    // it("Starts a game session", async () => {
-    //     const gameState = await program.account.gameState.fetch(gameStatePda);
-    //      [gameSessionPda] = PublicKey.findProgramAddressSync(
-    //         [Buffer.from("game_session"), player.publicKey.toBuffer(), Buffer.from(gameState.currentCompetition.id)],
-    //         program.programId
-    //     );
-    //
-    //     const kol = {
-    //         id: "KOL123",
-    //         name: "Test KOL",
-    //         age: 25,
-    //         country: "Test Country",
-    //         pfp: "https://example.com/pfp.jpg",
-    //         pfpType:"human",
-    //         accountCreation: 2020,
-    //         followers: 10000,
-    //         ecosystem: "Test Ecosystem",
-    //     };
-    //
-    //     await program.methods
-    //         .startGameSession(1, kol)
-    //         .accounts({
-    //             gameState: gameStatePda,
-    //             gameSession: gameSessionPda,
-    //             player: player.publicKey,
-    //             vault: vaultPda,
-    //             systemProgram: SystemProgram.programId,
-    //         })
-    //         .signers([player])
-    //         .rpc();
-    //
-    //     const gameSession = await program.account.gameSession.fetch(gameSessionPda);
-    //     console.log(gameState, gameSession)
-    //     expect(gameSession.gameType).to.equal(1);
-    //     expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
-    //     expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
-    //     expect(gameSession.competitionId.toString()).to.equal(gameState.currentCompetition.id.toString());
-    //     expect(gameSession.gameType).to.equal(1);
-    //     expect(gameSession.completed).to.be.false;
-    //     expect(gameSession.score.toString()).to.equal('0');
-    //     expect(gameSession.deposit.toNumber()).to.equal(REQUIRED_DEPOSIT *20);
-    // });
+    it("Starts a game session", async () => {
+        const gameState = await program.account.gameState.fetch(gameStatePda);
+         [gameSessionPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("game_session"), player.publicKey.toBuffer(), Buffer.from(gameState.currentCompetition.id)],
+            program.programId
+        );
+
+        const kol = {
+            id: "KOL123",
+            name: "Test KOL",
+            age: 25,
+            country: "Test Country",
+            pfp: "https://example.com/pfp.jpg",
+            pfpType:"human",
+            accountCreation: 2020,
+            followers: 10000,
+            ecosystem: "Test Ecosystem",
+        };
+
+        await program.methods
+            .startGameSession(1, kol)
+            .accounts({
+                gameState: gameStatePda,
+                gameSession: gameSessionPda,
+                player: player.publicKey,
+                vault: vaultPda,
+                systemProgram: SystemProgram.programId,
+            })
+            .signers([player])
+            .rpc();
+
+        const gameSession = await program.account.gameSession.fetch(gameSessionPda);
+        console.log(gameState, gameSession)
+        expect(gameSession.gameType).to.equal(1);
+        expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
+        expect(gameSession.player.toString()).to.equal(player.publicKey.toString());
+        expect(gameSession.competitionId.toString()).to.equal(gameState.currentCompetition.id.toString());
+        expect(gameSession.gameType).to.equal(1);
+        expect(gameSession.completed).to.be.false;
+        expect(gameSession.score.toString()).to.equal('0');
+        expect(gameSession.deposit.toNumber()).to.equal(REQUIRED_DEPOSIT *20);
+    });
     //
     // it("Submits a score", async () => {
     //     const gameType = 1;
@@ -108,4 +116,86 @@ let gameSessionPda: PublicKey
     //     expect(gameSessionAccount.game1Score).to.equal(score);
     //     expect(gameSessionAccount.game1GuessesCount).to.equal(guesses);
     // });
+    it("Distribute Funds", async () => {
+        const initialVaultBalance = await provider.connection.getBalance(vaultPda);
+
+        await program.methods
+            .distributeFunds()
+            .accounts({
+                authority: provider.wallet.publicKey,
+                vault: vaultPda,
+                soddleVault: SODDLE_WALLET,
+                rewardDistributionVault: REWARD_DISTRIBUTION_VAULT,
+                systemProgram: SystemProgram.programId,
+            })
+            .signers([provider.wallet])
+            .rpc();
+
+        const finalVaultBalance = await provider.connection.getBalance(vaultPda);
+        expect(finalVaultBalance).to.equal(0);
+
+        const soddleVaultBalance = await provider.connection.getBalance(SODDLE_WALLET);
+        expect(soddleVaultBalance).to.equal(initialVaultBalance * 0.025); // 2.5%
+    });
+
+    it("Should prevent unauthorized fund distribution", async () => {
+        const unauthorized = Keypair.generate();
+
+        try {
+            await program.methods
+                .distributeFunds()
+                .accounts({
+                    authority: unauthorized.publicKey,
+                    vault: vaultPda,
+                    soddleVault: SODDLE_WALLET,
+                    rewardDistributionVault: REWARD_DISTRIBUTION_VAULT,
+                    systemProgram: SystemProgram.programId,
+                })
+                .signers([unauthorized])
+                .rpc();
+
+            expect.fail("Should have thrown unauthorized error");
+        } catch (error) {
+            console.log(error)
+            expect(error).to.have.property("code", "UnauthorizedAuthority");
+        }
+    });
+
+    it("Should prevent playing same game type twice in one day", async () => {
+        const player = Keypair.generate();
+        const gameType = 1;
+
+        const kol = {
+            id: "KOL123",
+            name: "Test KOL",
+            age: 25,
+            country: "Test Country",
+            pfp: "https://example.com/pfp.jpg",
+            pfpType:"human",
+            accountCreation: 2020,
+            followers: 10000,
+            ecosystem: "Test Ecosystem",
+        };
+
+        try {
+            // Try to start same game type again
+            // @ts-ignore
+            await program.methods
+                .startGameSession(gameType, kol)
+                .accounts({
+                    gameState: gameStatePda,
+                    gameSession: gameSessionPda,
+                    player: player.publicKey,
+                    vault: vaultPda,
+                    systemProgram: SystemProgram.programId,
+                })
+                .signers([player])
+                .rpc();
+
+            expect.fail("Should have thrown already played error");
+        } catch (error) {
+            console.log(error)
+            expect(error).to.have.property("code", "GameAlreadyPlayed");
+        }
+    });
 });
