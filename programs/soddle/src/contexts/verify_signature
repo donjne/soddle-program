@@ -1,0 +1,28 @@
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{
+    ed25519_program::ID as ED25519_ID,
+    instruction::Instruction,
+    program::invoke
+};
+
+fn verify_oracle_signature(
+    signature: &[u8; 64],
+    message: &[u8],
+    oracle_pubkey: &Pubkey,
+) -> bool {
+    let ix = Instruction::new_with_bytes(
+        ED25519_ID,
+        &[
+            &signature[..],           // Signature
+            &oracle_pubkey.to_bytes(),// Then public key
+            message,                  // Finally the message
+        ].concat(),
+        vec![], 
+    );
+
+    // Invoke the ed25519 program
+    invoke(
+        &ix,
+        &[]
+    ).is_ok()
+}
