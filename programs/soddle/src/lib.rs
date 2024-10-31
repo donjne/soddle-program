@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("3W7TddatemAfjHziE7VqLhxb1zyGdsCVk8Z7bR9LTjps");
+declare_id!("2y7L42gHKEBAFprVLJ9XFQuzxLdT9dmptdgQsNdcJ4SP");
 
 // const REQUIRED_DEPOSIT: u64 = (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 const REQUIRED_DEPOSIT: u64 = (0.02 * LAMPORTS_PER_SOL as f64) as u64;
@@ -57,14 +57,14 @@ pub mod soddle_game {
         let current_time = clock.unix_timestamp;
 
         // Check if player has played today
-        if game_session.player != Pubkey::default() {
-            let last_play_day = game_session.start_time / (24 * 60 * 60);
-            let current_day = current_time / (24 * 60 * 60);
-            require!(
-                last_play_day != current_day,
-                SoddleError::AlreadyPlayedToday
-            );
-        }
+        // if game_session.player != Pubkey::default() {
+        //     let last_play_day = game_session.start_time / (24 * 60 * 60);
+        //     let current_day = current_time / (24 * 60 * 60);
+        //     require!(
+        //         last_play_day != current_day,
+        //         SoddleError::AlreadyPlayedToday
+        //     );
+        // }
         // In start_game_session instruction
         game_session.player = ctx.accounts.player.key();
         game_session.competition_id = ctx.accounts.game_state.current_competition.id.clone();
@@ -166,29 +166,31 @@ pub mod soddle_game {
             .checked_sub(soddle_vault_amount)
             .ok_or(SoddleError::MathOverflow)?; // 97.5%
 
-        // Transfer to Soddle wallet using invoke
+        // Transfer to Soddle wallet (2.5%)
         anchor_lang::solana_program::program::invoke_signed(
             &anchor_lang::solana_program::system_instruction::transfer(
                 &ctx.accounts.vault.key(),
-                &SODDLE_WALLET,
+                &ctx.accounts.soddle_wallet.key(),
                 soddle_vault_amount,
             ),
             &[
                 ctx.accounts.vault.to_account_info(),
+                ctx.accounts.soddle_wallet.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
             ],
             &[&[b"vault", &[ctx.bumps.vault]]],
         )?;
 
-        // Transfer to reward distribution vault using invoke
+        // Transfer remaining to reward distribution wallet (97.5%)
         anchor_lang::solana_program::program::invoke_signed(
             &anchor_lang::solana_program::system_instruction::transfer(
                 &ctx.accounts.vault.key(),
-                &REWARD_DISTRIBUTION_VAULT,
+                &ctx.accounts.reward_wallet.key(),
                 reward_distribution_vault_amount,
             ),
             &[
                 ctx.accounts.vault.to_account_info(),
+                ctx.accounts.reward_wallet.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
             ],
             &[&[b"vault", &[ctx.bumps.vault]]],
@@ -214,7 +216,11 @@ pub struct InitializeGame<'info> {
 
 #[derive(Accounts)]
 pub struct StartGameSession<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"game_state"],
+        bump
+    )]
     pub game_state: Account<'info, GameState>,
     #[account(
         init_if_needed,
@@ -261,12 +267,12 @@ pub struct DistributeFunds<'info> {
     )]
     /// CHECK: This is the vault account that holds the deposits
     pub vault: AccountInfo<'info>,
-    /// CHECK: This is the soddle wallet
-    #[account(mut, constraint = soddle_vault.key() == SODDLE_WALLET)]
-    pub soddle_vault: AccountInfo<'info>,
-    /// CHECK: This is the reward distribution vault
-    #[account(mut, constraint = reward_distribution_vault.key() == REWARD_DISTRIBUTION_VAULT)]
-    pub reward_distribution_vault: AccountInfo<'info>,
+    /// CHECK: Receives 2.5% of funds
+    #[account(mut, address = SODDLE_WALLET)]
+    pub soddle_wallet: AccountInfo<'info>,
+    /// CHECK: Receives 97.5% of funds
+    #[account(mut, address = REWARD_DISTRIBUTION_VAULT)]
+    pub reward_wallet: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
 
